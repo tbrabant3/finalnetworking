@@ -12,6 +12,7 @@ import argparse
 import json
 import struct
 import time
+import ssl
 
 class ChatClient(asyncio.Protocol):
     def __init__(self):
@@ -128,14 +129,18 @@ def handle_user_input(loop, client):
         if message == "quit":
             loop.stop()
             return
-
-        if message[0] == '@':
-            user_to_send = message.split(" ", 1)
-            dest = user_to_send[0][1:]
-
-        final_message = {"MESSAGES": [(src, dest, timestamp, message)]}
+        if message != "":
+            if message[0] == '@':
+                user_to_send = message.split(" ", 1)
+                dest = user_to_send[0][1:]
+                final_message = {"MESSAGES": [(src, dest, timestamp, user_to_send[1])]}
+            else:
+                final_message = {"MESSAGES": [(src, dest, timestamp, message)]}
+            client.write_out(json.dumps(final_message).encode('UTF-8'))  # Sends the message
+        else:
+            print("Please enter a real message")
         # print(json.dumps(final_message).encode('UTF-8'))
-        client.write_out(json.dumps(final_message).encode('UTF-8'))  # Sends the message
+
 
 
 if __name__ == '__main__':
@@ -143,6 +148,7 @@ if __name__ == '__main__':
     parser.add_argument('host', help='IP or hostname')
     parser.add_argument('-p', metavar='port', type=int, default=7000,
                         help='TCP port (default 7000)')
+    parser.add_argument('cafile', help='CA file only')
 
     args = parser.parse_args()
 
@@ -153,7 +159,9 @@ if __name__ == '__main__':
     
     # the lambda client serves as a factory that just returns
     # the client instance we just created
-    coro = loop.create_connection(lambda: client, args.host, args.p)
+    purpose = ssl.Purpose.SERVER_AUTH
+    context = ssl.create_default_context(purpose, cafile=args.cafile)
+    coro = loop.create_connection(lambda: client, args.host, args.p, ssl=context)
     
     loop.run_until_complete(coro)
 

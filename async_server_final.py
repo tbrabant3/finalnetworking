@@ -2,6 +2,7 @@ import asyncio
 import argparse
 import json
 import struct
+import ssl
 
 
 USER_LIST = []
@@ -48,7 +49,7 @@ class ChatServer(asyncio.Protocol):
             self.buffer = self.data[self.length + 4:]
         else:
             return
-
+        print(self.data)
         if 'USERNAME' in json_message and json_message.get('USERNAME') not in USER_LIST:
             USER_LIST.append(json_message.get("USERNAME"))
             self.username = json_message.get("USERNAME")
@@ -131,11 +132,16 @@ if __name__ == '__main__':
     parser.add_argument('host', help='IP or hostname')
     parser.add_argument('-p', metavar='port', type=int, default=1060,
                         help='TCP port (default 1060)')
+    parser.add_argument('pem', help='PEM file only')
     args = parser.parse_args()
     address = (args.host, args.p)
 
+    purpose = ssl.Purpose.CLIENT_AUTH
+    context = ssl.create_default_context(purpose)
+    context.load_cert_chain(args.pem)
+
     loop = asyncio.get_event_loop()
-    coro = loop.create_server(ChatServer, *address)
+    coro = loop.create_server(ChatServer, *address, ssl=context)
     server = loop.run_until_complete(coro)
     print('Listening at {}'.format(address))
     try:
