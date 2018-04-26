@@ -38,7 +38,7 @@ class ChatClient(asyncio.Protocol):
 
         if len(self.data[4:].decode('UTF-8')) >= self.length:
             incoming_data = json.loads(self.data[4:self.length + 4].decode('UTF-8'))
-            # print(incoming_data)
+            print(self.data)
             self.buffer = self.data[self.length + 4:]
             # print("Buffer: ", self.buffer)
         else:
@@ -72,7 +72,7 @@ class ChatClient(asyncio.Protocol):
         if incoming_data.get("USERS_LEFT"):
             print("User ", incoming_data.get("USERS_LEFT")[0], " has left.")
 
-        print(incoming_data)
+        #print(incoming_data)
         # print("received: ", incoming_data)
 
         if self.buffer:
@@ -129,7 +129,7 @@ def handle_user_input(loop, client):
         if message == "quit":
             loop.stop()
             return
-        if message != "":
+        if message != "" and message != "@":
             if message[0] == '@':
                 user_to_send = message.split(" ", 1)
                 dest = user_to_send[0][1:]
@@ -138,9 +138,7 @@ def handle_user_input(loop, client):
                 final_message = {"MESSAGES": [(src, dest, timestamp, message)]}
             client.write_out(json.dumps(final_message).encode('UTF-8'))  # Sends the message
         else:
-            print("Please enter a real message")
-        # print(json.dumps(final_message).encode('UTF-8'))
-
+            print("Please enter a message or follow '@' with a username")
 
 
 if __name__ == '__main__':
@@ -148,7 +146,7 @@ if __name__ == '__main__':
     parser.add_argument('host', help='IP or hostname')
     parser.add_argument('-p', metavar='port', type=int, default=7000,
                         help='TCP port (default 7000)')
-    parser.add_argument('cafile', help='CA file only')
+    parser.add_argument('-ca', help='CA file only', nargs='?', default=None)
 
     args = parser.parse_args()
 
@@ -160,7 +158,7 @@ if __name__ == '__main__':
     # the lambda client serves as a factory that just returns
     # the client instance we just created
     purpose = ssl.Purpose.SERVER_AUTH
-    context = ssl.create_default_context(purpose, cafile=args.cafile)
+    context = ssl.create_default_context(purpose, cafile=args.ca)
     coro = loop.create_connection(lambda: client, args.host, args.p, ssl=context)
     
     loop.run_until_complete(coro)
